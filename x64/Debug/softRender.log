@@ -1,0 +1,11 @@
+﻿  main.cpp
+C:\wt\softRender\main.cpp(16,126): warning C4244: “参数”: 从“float”转换到“const unsigned __int64”，可能丢失数据
+C:\wt\softRender\main.cpp(16,81): warning C4244: “参数”: 从“float”转换到“const unsigned __int64”，可能丢失数据
+C:\wt\softRender\main.cpp(133,13): warning C4244: “初始化”: 从“float”转换到“int”，可能丢失数据
+C:\wt\softRender\main.cpp(135,14): warning C4244: “初始化”: 从“float”转换到“int”，可能丢失数据
+C:\wt\softRender\main.cpp(143,12): warning C4244: “初始化”: 从“float”转换到“int”，可能丢失数据
+C:\wt\softRender\main.cpp(144,14): warning C4244: “初始化”: 从“float”转换到“int”，可能丢失数据
+C:\wt\softRender\main.cpp(145,13): warning C4244: “初始化”: 从“float”转换到“int”，可能丢失数据
+C:\wt\softRender\main.cpp(163,26): warning C4244: “参数”: 从“float”转换到“int”，可能丢失数据
+C:\wt\softRender\main.cpp(163,12): warning C4244: “参数”: 从“float”转换到“int”，可能丢失数据
+  softRender.vcxproj -> C:\wt\softRender\x64\Debug\softRender.exe

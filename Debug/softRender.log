@@ -1,0 +1,6 @@
+﻿  main.cpp
+C:\wt\softRender\main.cpp(70,24): error C2589: “(”:“::”右边的非法标记
+C:\wt\softRender\main.cpp(70): error C2062: 意外的类型“unknown-type”
+C:\wt\softRender\main.cpp(70,24): error C2059: 语法错误:“)”
+C:\wt\softRender\main.cpp(74,20): warning C4018: “<”: 有符号/无符号不匹配
+C:\wt\softRender\main.cpp(75,21): warning C4018: “<”: 有符号/无符号不匹配
