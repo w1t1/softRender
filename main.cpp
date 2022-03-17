@@ -29,6 +29,9 @@ struct Point
 	int r,g,b;
 };
 
+static std::vector<Point> point_buffer_;
+static std::vector<int> index_buffer_;
+
 struct Vector3
 {
 	Vector3(float x, float y, float z) :x(x), y(y), z(z) {}
@@ -148,6 +151,15 @@ void DrawTriangle(Point pa, Point pb, Point pc) {
 	}
 }
 
+void DrawBuffer()
+{
+	int tri_num = index_buffer_.size() / 3;
+	for (int i = 0; i < tri_num; i++)
+	{
+		DrawTriangle(point_buffer_[index_buffer_[i*3]], point_buffer_[index_buffer_[i * 3 + 1]], point_buffer_[index_buffer_[i * 3 + 2]]);
+	}
+}
+
 void Draw(std::vector< std::vector<unsigned int>>& color) {
 	for (int i = 0; i < color.size(); i++){
 		for (int j = 0; j < color[i].size(); j++) {
@@ -166,11 +178,24 @@ int main()
 	//		color[i][j] = 0X00FF00;
 	//	}
 	//}
-	DrawTriangle(Point(-100.0, -300.0, 0.0, 0x000000FF), Point(320.0, 600.0, 0.0, 0x0000FF00), Point(640.0, 0.0, 0.0, 0x00FF0000));
-	Draw(screen_color_buffer);
+	point_buffer_.push_back(Point(100.0, 0.0, 0.0, 0x000000FF));
+	point_buffer_.push_back(Point(100.0, 400.0, 0.0, 0x00FF0000));
+	point_buffer_.push_back(Point(400.0, 0.0, 0.0, 0x0000FF00));
+	point_buffer_.push_back(Point(400.0, 400.0, 0.0, 0x000000FF));
+	index_buffer_.push_back(0);
+	index_buffer_.push_back(1);
+	index_buffer_.push_back(2);
+	index_buffer_.push_back(2);
+	index_buffer_.push_back(1);
+	index_buffer_.push_back(3);
+	/*DrawTriangle(Point(-100.0, -300.0, 0.0, 0x000000FF), Point(320.0, 600.0, 0.0, 0x0000FF00), Point(640.0, 0.0, 0.0, 0x00FF0000));*/
+	while (1)
+	{
+		DrawBuffer();
+		Draw(screen_color_buffer);
+	}
 	//line1(200, 160, 400, 400);   //画线
 	//getch();                  //等待用户操作
-	Sleep(100000);
 	closegraph();             //关闭图形
 	return 0;
 }
