@@ -18,6 +18,12 @@ static float screen_height = 480.0f;
 static std::vector< std::vector<unsigned int>> screen_color_buffer(screen_width + 1, std::vector<unsigned int>(screen_height + 1, 0XFFFFFF));
 static std::vector< std::vector<int>> screen_depth_buffer(screen_width + 1, std::vector<int>(screen_height + 1, 2147483647));
 
+static int color_texture_width = 512;
+static int color_texture_height = 512;
+static std::vector<std::vector<int>> color_texture_r_ = std::vector<std::vector<int>>(512, std::vector<int>(512, 255));
+static std::vector<std::vector<int>> color_texture_g_ = std::vector<std::vector<int>>(512, std::vector<int>(512, 0));
+static std::vector<std::vector<int>> color_texture_b_ = std::vector<std::vector<int>>(512, std::vector<int>(512, 0));
+
 struct Point
 {
 	Point(float x, float y, float z) :x(x), y(y), z(z) {}
@@ -29,11 +35,13 @@ struct Point
 	Point() :x(0.f), y(0.f), z(0.f), color(0xFFFFFF) {}
 	float x, y, z;
 	unsigned color = 0xFFFFFF;
-	int r,g,b;
+	int r, g, b;
+	double u, v;
 };
- 
+
 static std::vector<Point> point_buffer_;
 static std::vector<int> index_buffer_;
+static std::vector<std::pair<double,double>> uv_data_;
 
 struct Vector3
 {
@@ -91,55 +99,68 @@ struct Vector4
 	float x, y, z, w;
 };
 
-//中点画线法
-void line1(int x1, int y1, int x2, int y2) {
-
-	int x, y, d0, d1, d2, a, b;
-	y = y1;
-	a = y1 - y2;          //直线方程中的a的算法
-	b = x2 - x1;          //直线方程中的b的算法
-	d0 = 2 * a + b;         //增量初始值
-	d1 = 2 * a;           //当>=0时的增量
-	d2 = 2 * (a + b);       //当<0时的增量
-	for (x = x1; x <= x2; x++) {
-		putpixel(x, y, 0x0000FF);   //打亮
-		if (d0 < 0) {
-			y++;
-			d0 += d2;
-		}
-		else {
-
-			d0 += d1;
-		}
-
-	}
-}
-//Bresenham画线算法
-void line2(int x1, int y1, int x2, int y2) {
-
-	int x, y, dx, dy, d;
-	y = y1;
-	dx = x2 - x1;
-	dy = y2 - y1;
-	d = 2 * dy - dx;        //增量d的初始值
-	for (x = x1; x <= x2; x++) {
-		putpixel(x, y, GREEN);   //打亮
-		if (d < 0) {
-			d += 2 * dy;
-		}
-		else {
-			y++;
-			d += 2 * dy - 2 * dx;
-		}
-
-
-
+struct Mat4
+{
+	Mat4(float x)
+	{
+		num[0][0] = x;
+		num[1][1] = x;
+		num[2][2] = x;
+		num[3][3] = x;
 	}
 
-}
+	Mat4()
+	{
+		num[0][0] = 1.0f;
+		num[1][1] = 1.0f;
+		num[2][2] = 1.0f;
+		num[3][3] = 1.0f;
+	}
+
+	Mat4(const Mat4& m) 
+	{
+		for (int i = 0; i < 4; i++) {
+			for (int j = 0; j < 4; j++) {
+				num[i][j] = m.num[i][j];
+			}
+		}
+	}
+
+	Mat4 operator+(const Mat4& m1) {
+		Mat4 m = m1;
+		for (int i = 0; i < 4; i++) {
+			for (int j = 0; j < 4; j++) {
+				m.num[i][j] += this->num[i][j];
+			}
+		}
+		return m;
+	}
+
+	Mat4 operator-(const Mat4& m1) {
+		Mat4 m = m1;
+		for (int i = 0; i < 4; i++) {
+			for (int j = 0; j < 4; j++) {
+				m.num[i][j] -= this->num[i][j];
+			}
+		}
+		return m;
+	}
+
+	Mat4 operator*(const Mat4& m1) {
+		Mat4 m = m1;
+		for (int i = 0; i < 4; i++) {
+			for (int j = 0; j < 4; j++) {
+				m.num[i][j] -= this->num[i][j];
+			}
+		}
+		return m;
+	}
+
+	float num[4][4];
+};
 
 //求点的重心坐标
-void BarycentricInTriangle(Point p, Point a, Point b, Point c, float& u, float& v,float& w)
+void BarycentricInTriangle(Point p, Point a, Point b, Point c, float& u, float& v, float& w)
 {
 	//Vector3 v0 = Vector3(c.x - a.x, c.y - a.y, 0);
 	//Vector3 v1 = Vector3(b.x - a.x, b.y - a.y, 0);
@@ -153,8 +174,8 @@ void BarycentricInTriangle(Point p, Point a, Point b, Point c, float& u, float& 
 	//u = (dot02 * dot11 - dot12 * dot01) / (dot00 * dot11 - dot01 * dot01);
 	//v = (dot02 * dot01 - dot12 * dot00) / (dot01 * dot01 - dot00 * dot11);
 
-	v = ((a.y - c.y) * p.x + (c.x- a.x) * p.y + (a.x * c.y - c.x* a.y)) / ((a.y - c.y) * b.x + (c.x - a.x) * b.y + (a.x * c.y - c.x * a.y));
-	w = ((a.y - b.y) * p.x + (b.x- a.x) * p.y + (a.x * b.y - b.x* a.y)) / ((a.y - b.y) * c.x + (b.x - a.x) * c.y + (a.x * b.y - b.x * a.y));
+	v = ((a.y - c.y) * p.x + (c.x - a.x) * p.y + (a.x * c.y - c.x * a.y)) / ((a.y - c.y) * b.x + (c.x - a.x) * b.y + (a.x * c.y - c.x * a.y));
+	w = ((a.y - b.y) * p.x + (b.x - a.x) * p.y + (a.x * b.y - b.x * a.y)) / ((a.y - b.y) * c.x + (b.x - a.x) * c.y + (a.x * b.y - b.x * a.y));
 	//u = ((-(p.x - b.x) * (c.y - b.y)) + ((p.y - b.y) * (c.x - b.x))) / ((-(a.x - b.x) * (c.y - b.y)) + ((b.y - c.y) * (a.x - c.x)));
 	//v = ((-(p.x - c.x) * (a.y - c.y)) + ((p.y - c.y) * (a.x - c.x))) / ((-(b.x - c.x) * (a.y - c.y)) + ((b.y - c.y) * (a.x - c.x)));
 	u = 1 - w - v;
@@ -205,17 +226,36 @@ void DrawTriangle(Point pa, Point pb, Point pc) {
 	}
 }
 
+//光栅化
 void DrawBuffer()
 {
 	int tri_num = index_buffer_.size() / 3;
 	for (int i = 0; i < tri_num; i++)
 	{
-		DrawTriangle(point_buffer_[index_buffer_[i*3]], point_buffer_[index_buffer_[i * 3 + 1]], point_buffer_[index_buffer_[i * 3 + 2]]);
+		Point x = point_buffer_[index_buffer_[i * 3]];
+		x.u = uv_data[uv_index_data[i] * 2];
+		x.v = uv_data[uv_index_data[i] * 2 + 1];
+		x.r = color_texture_r_[x.u * color_texture_width][x.v * color_texture_height];
+		x.g = color_texture_g_[x.u * color_texture_width][x.v * color_texture_height];
+		x.b = color_texture_b_[x.u * color_texture_width][x.v * color_texture_height];
+		Point y = point_buffer_[index_buffer_[i * 3 + 1]];
+		y.u = uv_data[uv_index_data[i + 1] * 2];
+		y.v = uv_data[uv_index_data[i + 1] * 2 + 1];
+		y.r = color_texture_r_[y.u * color_texture_width][y.v * color_texture_height];
+		y.g = color_texture_g_[y.u * color_texture_width][y.v * color_texture_height];
+		y.b = color_texture_b_[y.u * color_texture_width][y.v * color_texture_height];
+		Point z = point_buffer_[index_buffer_[i * 3 + 2]];
+		z.u = uv_data[uv_index_data[i + 2] * 2];
+		z.v = uv_data[uv_index_data[i + 2] * 2 + 1];
+		z.r = color_texture_r_[z.u * color_texture_width][z.v * color_texture_height];
+		z.g = color_texture_g_[z.u * color_texture_width][z.v * color_texture_height];
+		z.b = color_texture_b_[z.u * color_texture_width][z.v * color_texture_height];
+		DrawTriangle(x, y, z);
 	}
 }
 
 void Draw(std::vector< std::vector<unsigned int>>& color) {
-	for (int i = 0; i < color.size(); i++){
+	for (int i = 0; i < color.size(); i++) {
 		for (int j = 0; j < color[i].size(); j++) {
 			putpixel(i, j, color[i][j]);
 		}
@@ -223,35 +263,63 @@ void Draw(std::vector< std::vector<unsigned int>>& color) {
 	//putpixel(color.size()-1, color[color.size() - 1][color[color.size() - 1].size() -1 ], 0xFF0000);
 }
 
+void init()
+{
+	for (int i = 0; i < uv_data.size(); i += 2)
+	{
+		uv_data_.push_back(std::make_pair(uv_data[i], uv_data[i + 1]));
+	}
+
+	for (int i = 0; i < vertices_data.size(); i += 3) {
+		point_buffer_.push_back(Point(vertices_data[i], vertices_data[i + 1], vertices_data[i + 2] + 5, 0x00FF0000));
+	}
+
+	for (int i = 0; i < index_data.size(); i++) {
+		if (index_data[i] < 0) {
+			index_buffer_.push_back(index_data[i] * -1 - 1);
+		}
+		else {
+			index_buffer_.push_back(index_data[i]);
+		}
+	}
+
+}
+
 
 int main()
 {
 	initgraph(screen_width, screen_height);       //打开EGE初始化
+	init();
 	//for (int i = 0; i < 640; i++) {
 	//	for (int j = 0; j < 480; j++) {
 	//		color[i][j] = 0X00FF00;
 	//	}
 	//}
-	point_buffer_.push_back(Point(100.0, 0.0, 700.0, 0x000000FF));
-	point_buffer_.push_back(Point(100.0, 400.0, 700.0, 0x00FF0000));
-	point_buffer_.push_back(Point(400.0, 0.0, 700.0, 0x0000FF00));
-	point_buffer_.push_back(Point(400.0, 400.0, 700.0, 0x000000FF));
+
+	//point_buffer_.push_back(Point(100.0, 0.0, 700.0, 0x00000000));
+	//point_buffer_.push_back(Point(100.0, 400.0, 700.0, 0x00FF0000));
+	//point_buffer_.push_back(Point(400.0, 0.0, 700.0, 0x0000FF00));
+	//point_buffer_.push_back(Point(400.0, 400.0, 700.0, 0x000000FF));
+
+	//透视投影
 	for (int i = 0; i < point_buffer_.size(); i++)
 	{
 		Vector4 point = Vector4(point_buffer_[i].x, point_buffer_[i].y, point_buffer_[i].z, 1.0f);
 		Vector4 point_after_projection = Projection(point);
 		double screen_x = (point_after_projection.x * screen_width / 2.0 / point_after_projection.w) + screen_width / 2;
-		double screen_y = (point_after_projection.y * screen_height / 2.0 / point_after_projection.w) + screen_height / 2;
+		//dx的坐标原点和opengl不一样，所以这里调整一下
+		double screen_y = screen_height / 2 -  (point_after_projection.y * screen_height / 2.0 / point_after_projection.w);
 		double screen_z = point_after_projection.z / point_after_projection.w;
 		point_buffer_[i] = Point(screen_x, screen_y, screen_z, point_buffer_[i].color);
 	}
-	index_buffer_.push_back(0);
+	/*index_buffer_.push_back(0);
 	index_buffer_.push_back(1);
 	index_buffer_.push_back(2);
 	index_buffer_.push_back(2);
-	index_buffer_.push_back(1);
-	index_buffer_.push_back(3);
-	/*DrawTriangle(Point(-100.0, -300.0, 0.0, 0x000000FF), Point(320.0, 600.0, 0.0, 0x0000FF00), Point(640.0, 0.0, 0.0, 0x00FF0000));*/
+	index_buffer_.push_back(1);*/
+
+	//index_buffer_.push_back(3);
+	//DrawTriangle(Point(-100.0, -300.0, 0.0, 0x000000FF), Point(320.0, 600.0, 0.0, 0x0000FF00), Point(640.0, 0.0, 0.0, 0x00FF0000));
 	while (1)
 	{
 		DrawBuffer();
